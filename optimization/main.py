@@ -65,6 +65,7 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 	perceptual_criterion = nn.MSELoss().to(device)
 	content_criterion = nn.L1Loss().to(device) 
 	ragan_criterion = nn.BCEWithLogitsLoss().to(device)
+	dams_criterion = nn.CrossEntropyLoss().to(device)
 
 	generator_solver = optim.Adam(generator_network.parameters(), lr=2e-4, betas=(0.5, 0.999))
 	discriminator_solver = optim.Adam(discriminator_network.parameters(), lr=2e-4, betas=(0.5, 0.999)) 
@@ -84,7 +85,7 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 			real_labels = th.ones(batch_size).to(device)
 			fake_labels = th.zeros(batch_size).to(device)
 			matching_labels = th.range(0, batch_size).to(device)
-			
+
 			# move data to target device : gpu or cpu 
 			real_images = real_images.to(device)
 			captions = captions.to(device)
@@ -115,10 +116,10 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 			wq_prob, qw_prob = local_match_probabilities(words, local_features)
 			sq_prob, qs_prob = global_match_probabilities(sentences, global_features)
 
-			loss_w1 = criterion_damsm(wq_prob, matching_labels) 
-			loss_w2 = criterion_damsm(qw_prob, matching_labels)
-			loss_s1 = criterion_damsm(sq_prob, matching_labels)
-			loss_s2 = criterion_damsm(qs_prob, matching_labels)
+			loss_w1 = dams_criterion(wq_prob, matching_labels) 
+			loss_w2 = dams_criterion(qw_prob, matching_labels)
+			loss_s1 = dams_criterion(sq_prob, matching_labels)
+			loss_s2 = dams_criterion(qs_prob, matching_labels)
 
 			generator_dams_loss = loss_w1 + loss_w2 + loss_s1 + loss_s2
 
@@ -156,13 +157,13 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 			message = (nb_images, total_images, epoch_counter, nb_epochs, index, generator_error.item(), discriminator_error.item())
 			logger.debug('[%04d/%04d] | [%03d/%03d]:%05d | GLoss : %07.3f | DLoss : %07.3f' % message)
 			
-			if index % 2 == 0:
+			if index % 256 == 0:
 				descriptions = [ source.map_index2caption(seq) for seq in captions]
 				output = snapshot(real_images.cpu(), fake_images.cpu(), descriptions, f'output epoch {epoch_counter:03d}', mean=[0.5], std=[0.5])
 				cv2.imwrite(path.join(images_store, f'###_{epoch_counter:03d}_{index:03d}.jpg'), output)
 				
 		# temporary model states
-		if epoch_counter % 100 == 0:
+		if epoch_counter % 32 == 0:
 			th.save(generator_network, f'dump/generator_{epoch_counter:03d}.th')		
 			th.save(discriminator_network, f'dump/discriminator_{epoch_counter:03d}.th')		
 	
