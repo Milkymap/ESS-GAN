@@ -71,7 +71,7 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 
 	nb_images = 0 
 	total_images = len(source)
-
+	
 	# main training loop  
 	for epoch_counter in range(nb_epochs):
 		nb_images = 0
@@ -83,7 +83,8 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 			#define labels 
 			real_labels = th.ones(batch_size).to(device)
 			fake_labels = th.zeros(batch_size).to(device)
-
+			matching_labels = th.range(0, batch_size).to(device)
+			
 			# move data to target device : gpu or cpu 
 			real_images = real_images.to(device)
 			captions = captions.to(device)
@@ -108,16 +109,16 @@ def main_loop(storage, nb_epochs, bt_size, noise_dim, pretrained_model, images_s
 			real_images_critics = discriminator_network(real_images, transposed_sentences).detach()
 
 			# compute damsm loss 
-			response = network.encode_img(fake_images)	
+			response = encoder_network.encode_img(fake_images)	
 			local_features, global_features = list(map(lambda M: M.detach(), response)) 
 			
 			wq_prob, qw_prob = local_match_probabilities(words, local_features)
-			sq_prob, qs_prob = global_match_probabilities(sentence, global_features)
+			sq_prob, qs_prob = global_match_probabilities(sentences, global_features)
 
-			loss_w1 = criterion_damsm(wq_prob, damsm_labels) 
-			loss_w2 = criterion_damsm(qw_prob, damsm_labels)
-			loss_s1 = criterion_damsm(sq_prob, damsm_labels)
-			loss_s2 = criterion_damsm(qs_prob, damsm_labels)
+			loss_w1 = criterion_damsm(wq_prob, matching_labels) 
+			loss_w2 = criterion_damsm(qw_prob, matching_labels)
+			loss_s1 = criterion_damsm(sq_prob, matching_labels)
+			loss_s2 = criterion_damsm(qs_prob, matching_labels)
 
 			generator_dams_loss = loss_w1 + loss_w2 + loss_s1 + loss_s2
 
